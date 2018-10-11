@@ -75,6 +75,8 @@ struct JSONNode {
   std::vector<uint32_t> control_deps;
   // subgraphs
   std::vector<JSONGraph> subgraphs;
+  //num_outputs
+  uint32_t num_outputs;
 
   // function to save JSON node.
   void Save(dmlc::JSONWriter *writer) const {
@@ -99,6 +101,9 @@ struct JSONNode {
     if (subgraphs.size() != 0) {
       writer->WriteObjectKeyValue("subgraphs", subgraphs);
     }
+    // FIXME(fegin):
+    // A hacky way to store full(fwd & bwd) dataflow graph.
+    writer->WriteObjectKeyValue("num_outputs", node->num_outputs());
     writer->EndObject();
   }
 
@@ -152,7 +157,24 @@ struct JSONGraph {
     writer->WriteObjectKeyValue("node_row_ptr", node_row_ptr);
     writer->WriteObjectKeyValue("heads", heads);
     if (attrs.size() != 0) {
-      writer->WriteObjectKeyValue("attrs", attrs);
+      //for (auto it : attrs) {
+        //std::cout << it.first << std::endl;
+      //}
+      // A hacky way to store full(fwd & bwd) dataflow graph.
+      if (attrs.count("shape") > 0) {
+        std::unordered_map<std::string, std::shared_ptr<any> > new_attrs;
+        new_attrs["shape"] = attrs.at("shape");
+        new_attrs["shape_inputs"] = attrs.at("shape_inputs");
+        new_attrs["shape_num_unknown_nodes"] =
+              attrs.at("shape_num_unknown_nodes");
+        new_attrs["dtype"] = attrs.at("dtype");
+        new_attrs["dtype_inputs"] = attrs.at("dtype_inputs");
+        new_attrs["dtype_num_unknown_nodes"] =
+              attrs.at("dtype_num_unknown_nodes");
+        writer->WriteObjectKeyValue("attrs", new_attrs);
+      } else {
+        writer->WriteObjectKeyValue("attrs", attrs);
+      }
     }
     writer->EndObject();
   }
