@@ -13,96 +13,104 @@ struct SA_Node {
   uint32_t tensor_nid;
   uint32_t tensor_idx;
   std::vector<uint32_t> deps;
+  std::unordered_set<uint32_t> be_depended;
 };
 
-void LoadSaGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
-    std::ifstream ifs("thefile.txt");
-    std::string line;
-    while (std::getline(ifs, line)) {
-        size_t next = 0, last = 0;
-        std::string temp;
-        next = line.find(",", last);
-        //node.sa_nid = std::stoi(line.substr(last, next - last));
-        uint32_t sa_nid = std::stoi(line.substr(last, next - last));
-        sa_nodes[sa_nid].sa_nid = sa_nid;
-        SA_Node& node = sa_nodes[sa_nid];
-        last = next + 1;
-        next = line.find(",", last);
-        node.name = line.substr(last, next - last);
-        last = next + 1;
-        next = line.find(",", last);
-        temp = line.substr(last, next - last);
-        last = next + 1;
-        next = line.find(",", last);
-        if (temp[0] == 'N') {
-            node.tensor_nid = -1;
-            node.tensor_idx = -1;
-        } else {
-            node.tensor_nid = std::stoi(temp);
-            temp = line.substr(last, next - last);
-            node.tensor_idx = std::stoi(temp);
-        }
-        last = next + 1;
-	while ((next = line.find(",", last)) != std::string::npos) {
-	    node.deps.push_back(std::stoi(line.substr(last, next - last)));
-	    last = next + 1;
-	}
+void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
+  std::cout << "LoadSAGraphFile" << std::endl;
+  std::ifstream ifs("dataflow.rst");
+  std::string line;
+  while (std::getline(ifs, line)) {
+    size_t next = 0, last = 0;
+    next = line.find(",", last);
+    uint32_t sa_nid = std::stoi(line.substr(last, next - last));
+    sa_nodes[sa_nid].sa_nid = sa_nid;
+    SA_Node& node = sa_nodes[sa_nid];
+    last = next + 1;
+    next = line.find(",", last);
+    node.name = line.substr(last, next - last);
+    last = next + 1;
+    next = line.find(",", last);
+    std::string nid = line.substr(last, next - last);
+    last = next + 1;
+    next = line.find(",", last);
+    std::string idx = line.substr(last, next - last);
+    if (nid[0] == 'N') {
+      node.tensor_nid = -1;
+      node.tensor_idx = -1;
+    } else {
+      node.tensor_nid = std::stoi(nid);
+      node.tensor_idx = std::stoi(idx);
     }
+    last = next + 1;
+    while ((next = line.find(",", last)) != std::string::npos) {
+      node.deps.push_back(std::stoi(line.substr(last, next - last)));
+      last = next + 1;
+    }
+  }
+  std::cout << "SA_Node count " << sa_nodes.size() << std::endl;
 }
 
 NodeEntry CreateSwapEntry(const Op* swap_source_op) {
+  std::cout << "CreateSwapEntry" << std::endl;
   NodePtr node = Node::Create();
   node->attrs.op = swap_source_op;
   node->attrs.name = "swap_entry";
-  node->attrs.op->attr_parser(&(node->attrs));
+  //node->attrs.op->attr_parser(&(node->attrs));
   std::ostringstream os;
   os << "_SwapEntry_var";
-  node->inputs.emplace_back(Symbol::CreateVariable("_SwapEntry_var").outputs[0]);
+  //node->inputs.emplace_back(Symbol::CreateVariable("_SwapEntry_var").outputs[0]);
   return NodeEntry{std::move(node), 0, 0};
 }
 
 NodeEntry CreateSwapoutSink(const Op* swapout_sink_op) {
+  std::cout << "CreateSwapoutSink" << std::endl;
   NodePtr node = Node::Create();
   node->attrs.op = swapout_sink_op;
   node->attrs.name = "swapout_sink";
-  node->attrs.op->attr_parser(&(node->attrs));
+  //node->attrs.op->attr_parser(&(node->attrs));
   return NodeEntry{std::move(node), 0, 0};
 }
 
-void CreateSwapOut(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    const NodeEntry& swap_entry,
                    const NodeEntry& swapout_sink,
                    const Op* swapout_op,
                    std::unordered_map<uint32_t, NodeEntry>& swapouts) {
+  std::cout << "CreateSwapout" << std::endl;
   for (const auto& kv: sa_nodes) {
     NodePtr node = Node::Create();
     node->attrs.op = swapout_op;
     node->attrs.name = "swapout";
-    node->attrs.op->attr_parser(&(node->attrs));
-    node->inputs.emplace_back(swap_entry);
+    //node->attrs.op->attr_parser(&(node->attrs));
+    //node->inputs.emplace_back(swap_entry);
+    node->control_deps.emplace_back(swap_entry.node);
     swapout_sink.node->control_deps.emplace_back(node);
     swapouts[kv.first] = NodeEntry{std::move(node), 0, 0};
   }
 }
 
-void CreateSwapIn(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                   const NodeEntry& swap_entry,
                   const Op* swapin_op,
                   std::unordered_map<uint32_t, NodeEntry>& swapins) {
+  std::cout << "CreateSwapin" << std::endl;
   for (const auto& kv: sa_nodes) {
     NodePtr node = Node::Create();
     node->attrs.op = swapin_op;
     node->attrs.name = "swapout";
-    node->attrs.op->attr_parser(&(node->attrs));
-    node->inputs.emplace_back(swap_entry);
+    //node->attrs.op->attr_parser(&(node->attrs));
+    //node->inputs.emplace_back(swap_entry);
+    node->control_deps.emplace_back(swap_entry.node);
     swapins[kv.first] = NodeEntry{std::move(node), 0, 0};
   }
 }
 
-void CreateVariables(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                      const IndexedGraph& idx,
                      const NodeEntry& swap_entry,
                      std::unordered_map<uint32_t, NodeEntry>& variables) {
+  std::cout << "CreateVariables" << std::endl;
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (!idx[nid].source->is_variable()) continue;
     NodePtr node = nullptr;;
@@ -120,8 +128,8 @@ void CreateVariables(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       }
       for (uint32_t input_idx = 0; input_idx < idx[dep_nid].inputs.size();
            ++input_idx) {
-        if (idx[nid].inputs[input_idx].node_id == nid) {
-          node = idx[nid].source->inputs[input_idx].node;
+        if (idx[dep_nid].inputs[input_idx].node_id == nid) {
+          node = idx[dep_nid].source->inputs[input_idx].node;
           break;
         }
       }
@@ -130,46 +138,54 @@ void CreateVariables(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       }
     }
     CHECK(node != nullptr);
-    LOG(INFO) << "Create variable " << node->attrs.name << std::endl;
-    LOG(INFO) << "Create variable " << sa_nodes.at(nid).name << std::endl;
+    //LOG(INFO) << "Create variable " << node->attrs.name << std::endl;
+    //LOG(INFO) << "Create variable " << sa_nodes.at(nid).name << std::endl;
     CHECK(node->attrs.name == sa_nodes.at(nid).name);
     node->control_deps.emplace_back(swap_entry.node);
     variables[nid] = NodeEntry{std::move(node), 0, 0};
+    for (const auto dep_nid : sa_nodes.at(nid).deps) {
+      sa_nodes.at(dep_nid).be_depended.insert(nid);
+    }
   }
 }
 
 void CreateModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes) {
+  std::cout << "CreateModelNodes" << std::endl;
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (idx[nid].source->is_variable()) continue;
     NodePtr new_node = Node::Create();
     new_node->attrs = idx[nid].source->attrs;
-    LOG(INFO) << "Create node " << new_node->attrs.name << std::endl;
-    LOG(INFO) << "Create node " << sa_nodes.at(nid).name << std::endl;
+    //LOG(INFO) << "Create node " << new_node->attrs.name << std::endl;
+    //LOG(INFO) << "Create node " << sa_nodes.at(nid).name << std::endl;
     CHECK(new_node->attrs.name == sa_nodes.at(nid).name);
     new_nodes[nid] = new_node;
   }
 }
 
-void ConnectPreSwapIn(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void ConnectPreSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodeEntry>& swapins,
                       std::unordered_map<uint32_t, NodeEntry>& variables) {
+  std::cout << "ConnectPreSwapin" << std::endl;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() > 0) continue;
     NodeEntry& entry = kv.second;
-    variables[sa_nid].node->control_deps.emplace_back(entry.node);
+    for (const auto var_id : sa_nodes.at(sa_nid).be_depended) {
+      variables.at(var_id).node->control_deps.emplace_back(entry.node);
+    }
   }
 }
 
-void ConnectAllSwapIn(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void ConnectAllSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodeEntry>& swapins,
                       std::unordered_map<uint32_t, NodeEntry>& swapouts,
                       std::unordered_map<uint32_t, NodeEntry>& variables,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes) {
+  std::cout << "ConnectAllSwapin" << std::endl;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
@@ -206,13 +222,13 @@ void ConnectAllSwapIn(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
   }
 }
 
-void ConnectSwapOut(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void ConnectSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                     const IndexedGraph& idx,
                     std::unordered_map<uint32_t, NodeEntry>& swapouts,
                     std::unordered_map<uint32_t, NodeEntry>& swapins,
                     std::unordered_map<uint32_t, NodeEntry>& variables,
                     std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-
+  std::cout << "ConnectAllSwapout" << std::endl;
   for (auto& kv: swapouts) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
@@ -255,21 +271,52 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                        const std::unordered_map<uint32_t, NodeEntry>& swapouts,
                        const std::unordered_map<uint32_t, NodeEntry>& swapins,
                        std::unordered_map<uint32_t, NodeEntry>& variables) {
+  std::cout << "ConnectModelNodes" << std::endl;
   for (auto& kv : new_nodes) {
     uint32_t sa_nid = kv.first;
     auto old_inode = idx[sa_nid];
     NodePtr new_node = kv.second;
 
     // Copy inputs.
+    std::cout << "ConnectModeNode " << old_inode.source->attrs.name << std::endl;
+    std::cout << "ConnectModeNode " << old_inode.source->attrs.op->name << std::endl;
+    std::cout << "ConnectModeNode inputs " << old_inode.inputs.size() << std::endl;
+    std::cout << "ConnectModeNode old_deps " << old_inode.control_deps.size() << std::endl;
     for (const IndexedGraph::NodeEntry& ientry : old_inode.inputs) {
-      new_node->inputs.emplace_back(NodeEntry{new_nodes.at(ientry.node_id),
-                                              ientry.index,
-                                              ientry.version});
+      auto var_it = variables.find(ientry.node_id);
+      if (var_it != variables.end()) {
+        new_node->inputs.emplace_back(NodeEntry{var_it->second.node,
+                                                ientry.index,
+                                                ientry.version});
+      } else {
+        new_node->inputs.emplace_back(NodeEntry{new_nodes.at(ientry.node_id),
+                                                ientry.index,
+                                                ientry.version});
+      }
     }
 
+    std::vector<uint32_t> deps;
     // Copy control nodes.
+    for (uint32_t dep_nid : old_inode.control_deps) {
+      deps.push_back(dep_nid);
+    }
+    // Control deps from SA
     const SA_Node& sa_node = sa_nodes.at(sa_nid);
-    for (uint32_t dep_nid : sa_node.deps) {
+    for (const uint32_t dep_nid : sa_node.deps) {
+      bool exist = false;
+      for (const uint32_t  _dep_nid : deps) {
+        if (_dep_nid == dep_nid) {
+          exist = true;
+          break;
+        }
+      }
+      if (!exist) {
+        deps.push_back(dep_nid);
+      }
+    }
+
+    std::cout << "ConnectModeNode new_deps" << deps.size() << std::endl;
+    for (uint32_t dep_nid : deps) {
       // Depend on another model node.
       auto node_it = new_nodes.find(dep_nid);
       if (node_it != new_nodes.end()) {
@@ -303,6 +350,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
 }
 
 Graph SA_LoadGraph(Graph src) {
+  std::cout << "SA_LoadGraph" << std::endl;
   CHECK(src.attrs.count("swapout_op"))
       << "Need graph attribute \"swapout_op\" in SA_LoadGraph";
   CHECK(src.attrs.count("swapin_op"))
@@ -320,19 +368,20 @@ Graph SA_LoadGraph(Graph src) {
 
   // Create all the new swapout, swapin and nodes.
   // Connect all of them together.
-  LoadSaGraphFile(sa_nodes);
+  LoadSAGraphFile(sa_nodes);
   NodeEntry swap_entry = CreateSwapEntry(swap_entry_op);
   NodeEntry swapout_sink = CreateSwapoutSink(swapout_sink_op);
-  CreateSwapOut(sa_nodes, swap_entry, swapout_sink, swapout_op, swapouts);
-  CreateSwapIn(sa_nodes, swap_entry, swapin_op, swapins);
+  CreateSwapout(sa_nodes, swap_entry, swapout_sink, swapout_op, swapouts);
+  CreateSwapin(sa_nodes, swap_entry, swapin_op, swapins);
   CreateVariables(sa_nodes, idx, swap_entry, variables);
   CreateModelNodes(sa_nodes, idx, new_nodes);
-  ConnectPreSwapIn(sa_nodes, idx, swapins, variables);
-  ConnectAllSwapIn(sa_nodes, idx, swapins, swapouts, variables, new_nodes);
-  ConnectSwapOut(sa_nodes, idx, swapouts, swapins, variables, new_nodes);
+  ConnectPreSwapin(sa_nodes, idx, swapins, variables);
+  ConnectAllSwapin(sa_nodes, idx, swapins, swapouts, variables, new_nodes);
+  ConnectSwapout(sa_nodes, idx, swapouts, swapins, variables, new_nodes);
   ConnectModelNodes(sa_nodes, idx, new_nodes, swapouts, swapins, variables);
 
   // Create a new graph
+  std::cout << "Create a new graph" << std::endl;
   Graph ret;
   for (const NodeEntry& e : src.outputs) {
     CHECK(new_nodes.count(idx.node_id(e.node.get())) == 1);

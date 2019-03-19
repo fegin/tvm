@@ -84,6 +84,7 @@ inline Graph InferShape(Graph graph,
   if (shape_attr_key.length() != 0) {
     graph.attrs["shape_attr_key"] = std::make_shared<any>(std::move(shape_attr_key));
   }
+  std::cout << "Outer InferShape" << std::endl;
   return ApplyPass(std::move(graph), "InferShape");
 }
 
@@ -135,8 +136,8 @@ inline Graph PlaceDevice(Graph graph,
 inline Graph SA_LoadGraph(Graph graph,
                           const std::string& swap_entry_op,
                           const std::string& swapout_sink_op,
-                          const std::string& swapin_op,
-                          const std::string& swapout_op) {
+                          const std::string& swapout_op,
+                          const std::string& swapin_op) {
     graph.attrs["swap_entry_op"] = std::make_shared<any>(std::move(swap_entry_op));
     graph.attrs["swapout_sink_op"] = std::make_shared<any>(std::move(swapout_sink_op));
     graph.attrs["swapout_op"] = std::make_shared<any>(std::move(swapout_op));

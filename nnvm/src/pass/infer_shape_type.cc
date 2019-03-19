@@ -38,6 +38,7 @@ Graph InferAttr(Graph &&ret,
     rshape.resize(idx.num_node_entries(), empty_val);
   }
 
+  std::cout << "InferAttr " << std::endl;
   if (ret.attrs.count(input_name) != 0) {
     const AttrVector& shape_args = ret.GetAttr<AttrVector>(input_name);
     CHECK_LE(shape_args.size(), idx.input_nodes().size())
@@ -79,6 +80,7 @@ Graph InferAttr(Graph &&ret,
     const uint32_t num_inputs = inode.inputs.size();
     const uint32_t num_outputs = inode.source->num_outputs();
     if (inode.source->is_variable()) {
+      std::cout << "InferShape variable " << inode.source->attrs.name << std::endl;
       // Variable node. No operator. Only one output entry.
       CHECK(inode.source->op() == nullptr);
       CHECK_EQ(num_outputs, 1U);
@@ -91,6 +93,7 @@ Graph InferAttr(Graph &&ret,
         }
       }
     } else if (is_backward.get(inode.source->op(), false) && inode.control_deps.size()) {
+      std::cout << "InferShape backward " << inode.source->attrs.name << std::endl;
       CHECK_GE(inode.control_deps.size(), 1U)
         << "BackwardOp need to have control_deps to its forward op";
       const IndexedGraph::Node& fnode = idx[inode.control_deps[0]];
@@ -134,6 +137,7 @@ Graph InferAttr(Graph &&ret,
         }
       }
     } else {
+      std::cout << "InferShape forward " << inode.source->attrs.name << std::endl;
       bool forward_known = true;
       // Forward operator inference.
       ishape.resize(num_inputs, empty_val);
