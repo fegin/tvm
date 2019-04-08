@@ -132,6 +132,27 @@ inline Graph PlaceDevice(Graph graph,
   return ApplyPass(std::move(graph), "PlaceDevice");
 }
 
+inline Graph SA_LoadGraph(Graph graph,
+                          const std::string& swap_entry_op,
+                          const std::string& swapout_sink_op,
+                          const std::string& swapout_op,
+                          const std::string& swapin_op,
+                          size_t* num_forward_inputs,
+                          size_t* num_forward_outputs) {
+    graph.attrs["swap_entry_op"] = std::make_shared<any>(std::move(swap_entry_op));
+    graph.attrs["swapout_sink_op"] = std::make_shared<any>(std::move(swapout_sink_op));
+    graph.attrs["swapout_op"] = std::make_shared<any>(std::move(swapout_op));
+    graph.attrs["swapin_op"] = std::make_shared<any>(std::move(swapin_op));
+    graph.attrs["num_forward_inputs"] =
+      std::make_shared<any>(std::move(*num_forward_inputs));
+    graph.attrs["num_forward_outputs"] =
+      std::make_shared<any>(std::move(*num_forward_outputs));
+    auto ret = ApplyPass(std::move(graph), "SA_LoadGraph");
+    *num_forward_inputs = ret.GetAttr<size_t>("num_forward_inputs");
+    *num_forward_outputs = ret.GetAttr<size_t>("num_forward_outputs");
+    return ret;
+}
+
 /*!
  * \brief Get the gradient graph whose outputs are gradients of xs wrt to ys.
  * \param graph The input graph.

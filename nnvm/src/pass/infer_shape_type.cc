@@ -134,6 +134,7 @@ Graph InferAttr(Graph &&ret,
         }
       }
     } else {
+      std::cout << "InferShape forward " << inode.source->attrs.name << std::endl;
       bool forward_known = true;
       // Forward operator inference.
       ishape.resize(num_inputs, empty_val);
