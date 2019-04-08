@@ -59,6 +59,9 @@ NodeEntry CreateSwapEntry(const Op* swap_source_op) {
   //node->attrs.op->attr_parser(&(node->attrs));
   std::ostringstream os;
   os << "_SwapEntry_var";
+  // Note(fegin): We don't create a new variable for SwapEntry's input.
+  // Instead, we use "data" as the input for SwapEntry. This simplier the
+  // debuging of MXNetcreating data_entry_.
   //node->inputs.emplace_back(Symbol::CreateVariable("_SwapEntry_var").outputs[0]);
   return NodeEntry{std::move(node), 0, 0};
 }
@@ -83,7 +86,6 @@ void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     node->attrs.op = swapout_op;
     node->attrs.name = "swapout";
     //node->attrs.op->attr_parser(&(node->attrs));
-    //node->inputs.emplace_back(swap_entry);
     node->control_deps.emplace_back(swap_entry.node);
     swapout_sink.node->control_deps.emplace_back(node);
     swapouts[kv.first] = NodeEntry{std::move(node), 0, 0};
@@ -100,7 +102,6 @@ void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     node->attrs.op = swapin_op;
     node->attrs.name = "swapout";
     //node->attrs.op->attr_parser(&(node->attrs));
-    //node->inputs.emplace_back(swap_entry);
     node->control_deps.emplace_back(swap_entry.node);
     swapins[kv.first] = NodeEntry{std::move(node), 0, 0};
   }
@@ -115,7 +116,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (!idx[nid].source->is_variable()) continue;
     NodePtr node = nullptr;;
-    // FIXME: This is very hacky. Any better way to get NodePtr ?
+    // FIXME(fegin): This is very hacky. Any better way to get NodePtr ?
     for (uint32_t dep_nid = 0; nid < idx.num_nodes(); ++dep_nid) {
       for (uint32_t control_idx = 0; control_idx < idx[nid].control_deps.size();
            ++control_idx) {
@@ -143,7 +144,6 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     //LOG(INFO) << "Create variable " << sa_nodes.at(nid).name << std::endl;
     CHECK(node->attrs.name == sa_nodes.at(nid).name);
     if (node->attrs.name == "data") {
-      std::cout << "Found data" << std::endl;
       variables[nid] = NodeEntry{std::move(node), 0, 0};
       swap_entry.node->inputs.emplace_back(variables[nid]);
     } else {
@@ -288,10 +288,12 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     NodePtr new_node = kv.second;
 
     // Copy inputs.
+#if 0
     std::cout << "ConnectModeNode " << old_inode.source->attrs.name << std::endl;
     std::cout << "ConnectModeNode " << old_inode.source->attrs.op->name << std::endl;
     std::cout << "ConnectModeNode inputs " << old_inode.inputs.size() << std::endl;
     std::cout << "ConnectModeNode old_deps " << old_inode.control_deps.size() << std::endl;
+#endif
     for (const IndexedGraph::NodeEntry& ientry : old_inode.inputs) {
       auto var_it = variables.find(ientry.node_id);
       if (var_it != variables.end()) {

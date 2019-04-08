@@ -84,7 +84,6 @@ inline Graph InferShape(Graph graph,
   if (shape_attr_key.length() != 0) {
     graph.attrs["shape_attr_key"] = std::make_shared<any>(std::move(shape_attr_key));
   }
-  std::cout << "Outer InferShape" << std::endl;
   return ApplyPass(std::move(graph), "InferShape");
 }
 
