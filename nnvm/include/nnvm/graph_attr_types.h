@@ -107,6 +107,10 @@ using DeviceAssignMap = std::unordered_map<std::string, int>;
  */
 using StorageVector = std::vector<int>;
 
+using NodeIdMap = std::map<uint32_t, uint32_t>;
+using EntryIdMap = std::map<uint32_t, uint32_t>;
+using OutputIdxMap = std::map<uint32_t, uint32_t>;
+
 }  // namespace nnvm
 
 #endif  // NNVM_GRAPH_ATTR_TYPES_H_

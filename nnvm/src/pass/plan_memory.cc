@@ -162,19 +162,15 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
   const DTypeVector& dtype_vec = ret.GetAttr<DTypeVector>("dtype");
   const DeviceVector* device_vec = nullptr;
 
-  std::cout << "PlanMemory 01" << std::endl;
   if (ret.attrs.count("device") != 0) {
     device_vec = &(ret.GetAttr<DeviceVector>("device"));
   }
-  std::cout << "PlanMemory 02" << std::endl;
   size_t num_not_allocated = 0;
   std::vector<GraphAllocator::StorageID> storage_ref_count(idx.num_node_entries(), 0);
-  std::cout << "PlanMemory 03" << std::endl;
 
   for (uint32_t nid = node_range.first; nid < node_range.second; ++nid) {
     const auto& inode = idx[nid];
     if (inode.source->is_variable()) continue;
-    std::cout << "PlanMemory 04" << std::endl;
     // check inplace option
     if (finplace_option.count(inode.source->op()) != 0) {
       auto inplace_pairs = finplace_option[inode.source->op()](inode.source->attrs);
@@ -215,13 +211,10 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
         }
       }
     }
-    std::cout << "PlanMemory 20" << std::endl;
     // normal allocation
     const int dev_id = (device_vec != nullptr) ? device_vec->at(nid) : 0;
-    std::cout << "PlanMemory 21" << std::endl;
     // sort output nodes based on size before allocating output
     std::multimap<size_t, uint32_t> eids;
-    std::cout << "PlanMemory 22" << std::endl;
     for (uint32_t index = 0; index < inode.source->num_outputs(); ++index) {
       uint32_t eid = idx.entry_id(nid, index);
       // only request memory for kBadStorageID
@@ -232,7 +225,6 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
         eids.insert(std::make_pair(esize, eid));
       }
     }
-    std::cout << "PlanMemory 23" << std::endl;
     for (auto rit = eids.rbegin(); rit != eids.rend(); ++rit) {
         uint32_t eid = rit->second;
         auto sid = allocator->Request(dev_id, dtype_vec[eid], shape_vec[eid], nid);
@@ -241,14 +233,12 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
         }
         storage[eid] = sid;
     }
-    std::cout << "PlanMemory 24" << std::endl;
     // check if certain inputs is ignored.
     std::vector<uint32_t> ignore_inputs;
     if (fignore_inputs.count(inode.source->op()) != 0) {
       ignore_inputs = fignore_inputs[inode.source->op()](inode.source->attrs);
       std::sort(ignore_inputs.begin(), ignore_inputs.end());
     }
-    std::cout << "PlanMemory 25" << std::endl;
     // then free inputs
     for (size_t i = 0; i < inode.inputs.size(); ++i) {
       // ref counter of ignored input is already decreased.
@@ -264,7 +254,6 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
         allocator->Release(sid, nid);
       }
     }
-    std::cout << "PlanMemory 26" << std::endl;
     // check if there are outputs that can be freeded immediately
     // these output are not referenced by any operator.
     for (uint32_t index = 0; index < inode.source->num_outputs(); ++index) {
@@ -279,9 +268,7 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
         ++num_not_allocated;
       }
     }
-    std::cout << "PlanMemory 27" << std::endl;
   }
-  std::cout << "PlanMemory 99" << std::endl;
   return num_not_allocated;
 }
 
