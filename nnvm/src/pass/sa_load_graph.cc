@@ -13,6 +13,7 @@ struct SA_Node {
   uint32_t tensor_nid;
   uint32_t tensor_idx;
   std::vector<uint32_t> deps;
+  std::vector<std::pair<uint32_t, uint32_t>> inputs;
   std::unordered_set<uint32_t> be_depended;
 };
 
@@ -20,8 +21,15 @@ void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
   std::cout << "LoadSAGraphFile" << std::endl;
   std::ifstream ifs("dataflow.rst");
   std::string line;
+  std::string inputs = "";
   while (std::getline(ifs, line)) {
     size_t next = 0, last = 0;
+    next = line.find(";", last);
+    if (next != std::string::npos) {
+        inputs = line.substr(next + 1);
+        line = line.substr(last, next - last);
+    }
+    next = last = 0;
     next = line.find(",", last);
     uint32_t sa_nid = std::stoi(line.substr(last, next - last));
     sa_nodes[sa_nid].sa_nid = sa_nid;
@@ -46,6 +54,16 @@ void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
     while ((next = line.find(",", last)) != std::string::npos) {
       node.deps.push_back(std::stoi(line.substr(last, next - last)));
       last = next + 1;
+    }
+    if (inputs.size() > 0) {
+      next = last = 0;
+      while ((next = inputs.find(",", last)) != std::string::npos) {
+        uint32_t node_id = std::stoi(inputs.substr(last, next - last));
+        last = next + 1;
+        uint32_t index = std::stoi(inputs.substr(last, next - last));
+        last = next + 1;
+        node.inputs.push_back(std::make_pair(node_id, index));
+      }
     }
   }
   std::cout << "SA_Node count " << sa_nodes.size() << std::endl;
@@ -120,8 +138,8 @@ void CreateUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     node->attrs.op = update_op;
     node->attrs.name = kv.second.name;
     //node->attrs.op->attr_parser(&(node->attrs));
-    // FIXME(fegin)
-    //swapout_sink.node->control_deps.emplace_back(node);
+    // FIXME(fegin): Turn this on when everything is ready.
+    // swapout_sink.node->control_deps.emplace_back(node);
     updates[kv.first] = NodeEntry{std::move(node), 0, 0};
   }
 }
@@ -230,7 +248,7 @@ void ConnectSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       // Depend on a update node.
       auto update_it = updates.find(dep_nid);
       if (update_it != updates.end()) {
-        // FIXME(fegin):
+        // FIXME(fegin): Turn this on when everything is ready.
         //entry.node->control_deps.emplace_back(node_it->second);
         continue;
       }
@@ -311,14 +329,19 @@ void ConnectUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    std::unordered_map<uint32_t, NodeEntry>& swapins,
                    std::unordered_map<uint32_t, NodeEntry>& variables,
                    std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  // FIXME(fegin):
+  // FIXME(fegin): Turn this on when everything is ready.
   return;
   std::cout << "ConnectUpdate" << std::endl;
   for (auto& kv: updates) {
-    uint32_t sa_nid = kv.first;
-    if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
+    const SA_Node& sa_node = sa_nodes.at(kv.first);
     NodeEntry& entry = kv.second;
-    for (uint32_t dep_nid : sa_nodes.at(sa_nid).deps) {
+    for (auto& input : sa_node.inputs) {
+      entry.node->inputs.emplace_back(NodeEntry{new_nodes.at(input.first),
+                                                input.second,
+                                                0});
+    }
+    if (sa_node.deps.size() == 0) continue;
+    for (uint32_t dep_nid : sa_node.deps) {
       // Depend on a swapin.
       auto si_it = swapins.find(dep_nid);
       if (si_it != swapins.end()) {
@@ -462,7 +485,7 @@ Graph SA_LoadGraph(Graph src) {
   NodeEntry swapout_sink = CreateSwapoutSink(swapout_sink_op);
   CreateSwapout(sa_nodes, swap_entry, swapout_sink, swapout_op, swapouts);
   CreateSwapin(sa_nodes, swap_entry, swapin_op, swapins);
-  // FIXME(fegin):
+  // FIXME(fegin): Figure out the update op.
   CreateUpdate(sa_nodes, swapout_sink, NULL, updates);
   CreateVariables(sa_nodes, idx, swap_entry, variables, nodeptr_to_old_nid);
   CreateModelNodes(sa_nodes, idx, new_nodes, nodeptr_to_old_nid);
