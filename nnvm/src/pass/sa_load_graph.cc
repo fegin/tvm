@@ -461,10 +461,17 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
 
 Graph SA_LoadGraph(Graph src) {
   std::cout << "SA_LoadGraph" << std::endl;
+  CHECK(src.attrs.count("swap_entry_op"))
+      << "Need graph attribute \"swap_entry_op\" in SA_LoadGraph";
+  CHECK(src.attrs.count("swapout_sink_op"))
+      << "Need graph attribute \"swapout_sink_op\" in SA_LoadGraph";
   CHECK(src.attrs.count("swapout_op"))
       << "Need graph attribute \"swapout_op\" in SA_LoadGraph";
   CHECK(src.attrs.count("swapin_op"))
       << "Need graph attribute \"swapin_op\" in SA_LoadGraph";
+  CHECK(src.attrs.count("update_op"))
+      << "Need graph attribute \"update_op\" in SA_LoadGraph";
+  const Op* update_op = Op::Get(src.GetAttr<std::string>("update_op"));
   const Op* swap_entry_op = Op::Get(src.GetAttr<std::string>("swap_entry_op"));
   const Op* swapout_sink_op = Op::Get(src.GetAttr<std::string>("swapout_sink_op"));
   const Op* swapin_op = Op::Get(src.GetAttr<std::string>("swapin_op"));
@@ -555,6 +562,7 @@ NNVM_REGISTER_PASS(SA_LoadGraph)
 .depend_graph_attr("device")
 .depend_graph_attr("num_forward_inputs")
 .depend_graph_attr("num_forward_outputs")
+.depend_graph_attr("update_op")
 .depend_graph_attr("swap_entry_op")
 .depend_graph_attr("swapout_sink_op")
 .depend_graph_attr("swapin_op")
