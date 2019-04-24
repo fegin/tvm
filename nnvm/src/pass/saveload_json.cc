@@ -171,6 +171,7 @@ struct JSONGraph {
         new_attrs["dtype_inputs"] = attrs.at("dtype_inputs");
         new_attrs["dtype_num_unknown_nodes"] =
               attrs.at("dtype_num_unknown_nodes");
+        new_attrs["output_handles"] = attrs.at("output_handles");
         writer->WriteObjectKeyValue("attrs", new_attrs);
       } else {
         writer->WriteObjectKeyValue("attrs", attrs);
@@ -317,6 +318,7 @@ NNVM_REGISTER_PASS(SaveJSON)
 DMLC_JSON_ENABLE_ANY(std::string, str);
 DMLC_JSON_ENABLE_ANY(std::vector<int>, list_int);
 DMLC_JSON_ENABLE_ANY(std::vector<std::string>, list_str);
+DMLC_JSON_ENABLE_ANY(std::vector<std::vector<std::vector<size_t>>>, output_handles);
 
 }  // namespace
 }  // namespace pass
