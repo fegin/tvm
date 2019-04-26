@@ -133,12 +133,14 @@ inline Graph PlaceDevice(Graph graph,
 }
 
 inline Graph SA_LoadGraph(Graph graph,
+                          const std::string& update_op,
                           const std::string& swap_entry_op,
                           const std::string& swapout_sink_op,
                           const std::string& swapout_op,
                           const std::string& swapin_op,
                           size_t* num_forward_inputs,
                           size_t* num_forward_outputs) {
+    graph.attrs["update_op"] = std::make_shared<any>(std::move(update_op));
     graph.attrs["swap_entry_op"] = std::make_shared<any>(std::move(swap_entry_op));
     graph.attrs["swapout_sink_op"] = std::make_shared<any>(std::move(swapout_sink_op));
     graph.attrs["swapout_op"] = std::make_shared<any>(std::move(swapout_op));
