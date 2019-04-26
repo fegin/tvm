@@ -318,7 +318,7 @@ NNVM_REGISTER_PASS(SaveJSON)
 DMLC_JSON_ENABLE_ANY(std::string, str);
 DMLC_JSON_ENABLE_ANY(std::vector<int>, list_int);
 DMLC_JSON_ENABLE_ANY(std::vector<std::string>, list_str);
-DMLC_JSON_ENABLE_ANY(std::vector<std::vector<std::vector<size_t>>>, output_handles);
+DMLC_JSON_ENABLE_ANY(std::vector<std::vector<size_t>>, output_handles);
 
 }  // namespace
 }  // namespace pass
