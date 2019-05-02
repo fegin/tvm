@@ -104,7 +104,9 @@ void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     NodePtr node = Node::Create();
     node->attrs.op = swapout_op;
     node->attrs.name = "swapout";
-    //node->attrs.op->attr_parser(&(node->attrs));
+    node->attrs.dict["src_tensor_nid"] = std::to_string(kv.second.tensor_nid);
+    node->attrs.dict["src_tensor_idx"] = std::to_string(kv.second.tensor_idx);
+    node->attrs.op->attr_parser(&(node->attrs));
     node->control_deps.emplace_back(swap_entry.node);
     swapout_sink.node->control_deps.emplace_back(node);
     swapouts[kv.first] = NodeEntry{std::move(node), 0, 0};
@@ -121,7 +123,9 @@ void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     NodePtr node = Node::Create();
     node->attrs.op = swapin_op;
     node->attrs.name = "swapin";
-    //node->attrs.op->attr_parser(&(node->attrs));
+    node->attrs.dict["src_tensor_nid"] = std::to_string(kv.second.tensor_nid);
+    node->attrs.dict["src_tensor_idx"] = std::to_string(kv.second.tensor_idx);
+    node->attrs.op->attr_parser(&(node->attrs));
     node->control_deps.emplace_back(swap_entry.node);
     swapins[kv.first] = NodeEntry{std::move(node), 0, 0};
   }
