@@ -17,54 +17,88 @@ struct SA_Node {
   std::unordered_set<uint32_t> be_depended;
 };
 
-void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
+void LoadHandleUsages(uint32_t nid, std::string& line,
+                      HandleUsages& hdl_usages) {
+  std::cout << "LoadHandleUsages:" << line << std::endl;
+  if (line.size() == 0) return;
+  size_t next = 0, last = 0;
+  next = line.find(",", last);
+  while ((next = line.find(",", last)) != std::string::npos) {
+    uint32_t hid = std::stoi(line.substr(last, next - last));
+    last = next + 1;
+    hdl_usages[nid].push_back(hid);
+  }
+}
+
+void LoadInputDep(SA_Node& node, std::string& line) {
+  std::cout << "LoadInputDep:" << line << std::endl;
+  if (line.size() == 0) return;
+  size_t next = 0, last = 0;
+  while ((next = line.find(",", last)) != std::string::npos) {
+    uint32_t node_id = std::stoi(line.substr(last, next - last));
+    last = next + 1;
+    next = line.find(",", last);
+    uint32_t index = std::stoi(line.substr(last, next - last));
+    last = next + 1;
+    node.inputs.push_back(std::make_pair(node_id, index));
+  }
+}
+
+uint32_t LoadNodeInfo(std::string& line,
+                      std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
+  std::cout << "LoadNodeInfo:" << line << std::endl;
+  size_t next = 0, last = 0;
+  next = line.find(",", last);
+  size_t sa_nid = std::stoi(line.substr(last, next - last));
+  sa_nodes[sa_nid].sa_nid = sa_nid;
+  SA_Node& node = sa_nodes[sa_nid];
+  last = next + 1;
+  next = line.find(",", last);
+  node.name = line.substr(last, next - last);
+  last = next + 1;
+  next = line.find(",", last);
+  std::string nid = line.substr(last, next - last);
+  last = next + 1;
+  next = line.find(",", last);
+  std::string idx = line.substr(last, next - last);
+  std::cout << "!!" << std::endl;
+  if (nid[0] == 'N') {
+    node.tensor_nid = -1;
+    node.tensor_idx = -1;
+  } else {
+    node.tensor_nid = std::stoi(nid);
+    node.tensor_idx = std::stoi(idx);
+  }
+  last = next + 1;
+  while ((next = line.find(",", last)) != std::string::npos) {
+    node.deps.push_back(std::stoi(line.substr(last, next - last)));
+    last = next + 1;
+  }
+  return sa_nid;
+}
+
+void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+                     HandleUsages& handle_usages) {
   std::cout << "LoadSAGraphFile" << std::endl;
   std::ifstream ifs("dataflow.rst");
-  std::string line;
-  std::string inputs = "";
+  std::string line, node_info, hdl_usages, input_deps;
   while (std::getline(ifs, line)) {
     size_t next = 0, last = 0;
+    std::cout << line << std::endl;
     next = line.find(";", last);
-    if (next != std::string::npos) {
-        inputs = line.substr(next + 1);
-        line = line.substr(last, next - last);
-    }
-    next = last = 0;
-    next = line.find(",", last);
-    uint32_t sa_nid = std::stoi(line.substr(last, next - last));
-    sa_nodes[sa_nid].sa_nid = sa_nid;
+    node_info = line.substr(last, next - last);
+    last = next + 1;
+    next = line.find(";", last);
+    hdl_usages = line.substr(last, next - last);
+    input_deps = line.substr(next + 1);
+    std::cout << node_info << std::endl;
+    std::cout << hdl_usages << std::endl;
+    std::cout << input_deps << std::endl;
+
+    uint32_t sa_nid = LoadNodeInfo(node_info, sa_nodes);
     SA_Node& node = sa_nodes[sa_nid];
-    last = next + 1;
-    next = line.find(",", last);
-    node.name = line.substr(last, next - last);
-    last = next + 1;
-    next = line.find(",", last);
-    std::string nid = line.substr(last, next - last);
-    last = next + 1;
-    next = line.find(",", last);
-    std::string idx = line.substr(last, next - last);
-    if (nid[0] == 'N') {
-      node.tensor_nid = -1;
-      node.tensor_idx = -1;
-    } else {
-      node.tensor_nid = std::stoi(nid);
-      node.tensor_idx = std::stoi(idx);
-    }
-    last = next + 1;
-    while ((next = line.find(",", last)) != std::string::npos) {
-      node.deps.push_back(std::stoi(line.substr(last, next - last)));
-      last = next + 1;
-    }
-    if (inputs.size() > 0) {
-      next = last = 0;
-      while ((next = inputs.find(",", last)) != std::string::npos) {
-        uint32_t node_id = std::stoi(inputs.substr(last, next - last));
-        last = next + 1;
-        uint32_t index = std::stoi(inputs.substr(last, next - last));
-        last = next + 1;
-        node.inputs.push_back(std::make_pair(node_id, index));
-      }
-    }
+    LoadHandleUsages(sa_nid, hdl_usages, handle_usages);
+    LoadInputDep(node, input_deps);
   }
   std::cout << "SA_Node count " << sa_nodes.size() << std::endl;
 }
@@ -74,7 +108,6 @@ NodeEntry CreateSwapEntry(const Op* swap_source_op) {
   NodePtr node = Node::Create();
   node->attrs.op = swap_source_op;
   node->attrs.name = "swap_entry";
-  //node->attrs.op->attr_parser(&(node->attrs));
   std::ostringstream os;
   os << "_SwapEntry_var";
   // Note(fegin): We don't create a new variable for SwapEntry's input.
@@ -89,7 +122,6 @@ NodeEntry CreateSwapoutSink(const Op* swapout_sink_op) {
   NodePtr node = Node::Create();
   node->attrs.op = swapout_sink_op;
   node->attrs.name = "swapout_sink";
-  //node->attrs.op->attr_parser(&(node->attrs));
   return NodeEntry{std::move(node), 0, 0};
 }
 
@@ -156,7 +188,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
   std::cout << "CreateVariables" << std::endl;
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (!idx[nid].source->is_variable()) continue;
-    NodePtr node = nullptr;;
+    NodePtr node = nullptr;
     // FIXME(fegin): This is very hacky. Any better way to get NodePtr ?
     for (uint32_t dep_nid = 0; nid < idx.num_nodes(); ++dep_nid) {
       for (uint32_t control_idx = 0; control_idx < idx[nid].control_deps.size();
@@ -184,6 +216,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     //LOG(INFO) << "Create variable " << node->attrs.name << std::endl;
     //LOG(INFO) << "Create variable " << sa_nodes.at(nid).name << std::endl;
     CHECK(node->attrs.name == sa_nodes.at(nid).name);
+    nodeptr_to_old_nid[node.get()] = nid;
     if (node->attrs.name == "data") {
       variables[nid] = NodeEntry{std::move(node), 0, 0};
       swap_entry.node->inputs.emplace_back(variables[nid]);
@@ -194,7 +227,6 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     for (const auto dep_nid : sa_nodes.at(nid).deps) {
       sa_nodes.at(dep_nid).be_depended.insert(nid);
     }
-    nodeptr_to_old_nid[node.get()] = nid;
   }
 }
 
@@ -488,10 +520,11 @@ Graph SA_LoadGraph(Graph src) {
   std::unordered_map<uint32_t, NodeEntry> variables;      // SA_ID -> new variable NodeEntry
   std::unordered_map<uint32_t, NodePtr> new_nodes;        // SA_ID -> new model NodeEntry
   std::unordered_map<uint32_t, SA_Node> sa_nodes;         // SA_ID -> SA_Node
+  HandleUsages handle_usages;
 
   // Create all the new swapout, swapin and nodes.
   // Connect all of them together.
-  LoadSAGraphFile(sa_nodes);
+  LoadSAGraphFile(sa_nodes, handle_usages);
   NodeEntry swap_entry = CreateSwapEntry(swap_entry_op);
   NodeEntry swapout_sink = CreateSwapoutSink(swapout_sink_op);
   CreateSwapout(sa_nodes, swap_entry, swapout_sink, swapout_op, swapouts);
@@ -525,27 +558,32 @@ Graph SA_LoadGraph(Graph src) {
 
   // Update graph attributes.
   const auto& new_idx = ret.indexed_graph();
-  NodeIdMap old_nids;
-  EntryIdMap old_eids;
+  IdMapping new_to_old_nids;
+  IdMapping old_to_new_nids;
+  IdMapping new_to_old_eids;
   std::cout << "nodeptr_to_old_nid " << nodeptr_to_old_nid.size() << std::endl;
   for (uint32_t nid = 0; nid < new_idx.num_nodes(); ++nid) {
     const auto it =
       nodeptr_to_old_nid.find(const_cast<Node*>(new_idx[nid].source));
     if (it == nodeptr_to_old_nid.end()) {
+      std::cout << "SKIP " << nid << new_idx[nid].source->attrs.name << std::endl;
       continue;
     }
     const size_t old_nid = it->second;
-    old_nids[nid] = old_nid;
+    new_to_old_nids[nid] = old_nid;
+    old_to_new_nids[old_nid] = nid;
     const size_t num_outputs = new_idx[nid].source->num_outputs();
     for (size_t output_idx = 0; output_idx < num_outputs; output_idx++) {
-      old_eids[new_idx.entry_id(nid, output_idx)] = idx.entry_id(old_nid,
-                                                                 output_idx);
+      new_to_old_eids[new_idx.entry_id(nid, output_idx)] = idx.entry_id(old_nid,
+                                                                        output_idx);
     }
   }
   ret.attrs["context"] = src.attrs.at("context");
   ret.attrs["device"] = src.attrs.at("device");
-  ret.attrs["old_nids"] = std::make_shared<dmlc::any>(std::move(old_nids));
-  ret.attrs["old_eids"] = std::make_shared<dmlc::any>(std::move(old_eids));
+  ret.attrs["old_hdl_usages"] = std::make_shared<dmlc::any>(std::move(handle_usages));
+  ret.attrs["new_to_old_nids"] = std::make_shared<dmlc::any>(std::move(new_to_old_nids));
+  ret.attrs["old_to_new_nids"] = std::make_shared<dmlc::any>(std::move(old_to_new_nids));
+  ret.attrs["new_to_old_eids"] = std::make_shared<dmlc::any>(std::move(new_to_old_eids));
   ret.attrs["num_forward_inputs"] =
     std::make_shared<dmlc::any>(src.GetAttr<size_t>("num_forward_inputs"));
   ret.attrs["num_forward_outputs"] =
@@ -560,8 +598,9 @@ NNVM_REGISTER_PASS(SA_LoadGraph)
 .set_change_graph(true)
 .provide_graph_attr("num_forward_inputs")
 .provide_graph_attr("num_forward_outputs")
-.provide_graph_attr("old_nids")
-.provide_graph_attr("old_eids")
+.provide_graph_attr("new_to_old_nids")
+.provide_graph_attr("old_to_new_nids")
+.provide_graph_attr("new_to_old_eids")
 .depend_graph_attr("context")
 .depend_graph_attr("device")
 .depend_graph_attr("num_forward_inputs")
