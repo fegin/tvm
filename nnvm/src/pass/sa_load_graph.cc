@@ -18,15 +18,20 @@ struct SA_Node {
 };
 
 void LoadHandleUsages(uint32_t nid, std::string& line,
-                      HandleUsages& hdl_usages) {
+                      HandleUsages& hdl_usages,
+                      HandleSizes& hdl_sizes) {
   std::cout << "LoadHandleUsages:" << line << std::endl;
   if (line.size() == 0) return;
   size_t next = 0, last = 0;
   next = line.find(",", last);
   while ((next = line.find(",", last)) != std::string::npos) {
     uint32_t hid = std::stoi(line.substr(last, next - last));
-    last = next + 1;
     hdl_usages[nid].push_back(hid);
+    last = next + 1;
+    next = line.find(",", last);
+    size_t size = std::stol(line.substr(last, next - last));
+    hdl_sizes[hid] = size;
+    last = next + 1;
   }
 }
 
@@ -78,7 +83,7 @@ uint32_t LoadNodeInfo(std::string& line,
 }
 
 void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
-                     HandleUsages& handle_usages) {
+                     HandleUsages& handle_usages, HandleSizes& handle_sizes) {
   std::cout << "LoadSAGraphFile" << std::endl;
   std::ifstream ifs("dataflow.rst");
   std::string line, node_info, hdl_usages, input_deps;
@@ -97,7 +102,7 @@ void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
 
     uint32_t sa_nid = LoadNodeInfo(node_info, sa_nodes);
     SA_Node& node = sa_nodes[sa_nid];
-    LoadHandleUsages(sa_nid, hdl_usages, handle_usages);
+    LoadHandleUsages(sa_nid, hdl_usages, handle_usages, handle_sizes);
     LoadInputDep(node, input_deps);
   }
   std::cout << "SA_Node count " << sa_nodes.size() << std::endl;
@@ -521,10 +526,11 @@ Graph SA_LoadGraph(Graph src) {
   std::unordered_map<uint32_t, NodePtr> new_nodes;        // SA_ID -> new model NodeEntry
   std::unordered_map<uint32_t, SA_Node> sa_nodes;         // SA_ID -> SA_Node
   HandleUsages handle_usages;
+  HandleSizes handle_sizes;
 
   // Create all the new swapout, swapin and nodes.
   // Connect all of them together.
-  LoadSAGraphFile(sa_nodes, handle_usages);
+  LoadSAGraphFile(sa_nodes, handle_usages, handle_sizes);
   NodeEntry swap_entry = CreateSwapEntry(swap_entry_op);
   NodeEntry swapout_sink = CreateSwapoutSink(swapout_sink_op);
   CreateSwapout(sa_nodes, swap_entry, swapout_sink, swapout_op, swapouts);
@@ -581,6 +587,7 @@ Graph SA_LoadGraph(Graph src) {
   ret.attrs["context"] = src.attrs.at("context");
   ret.attrs["device"] = src.attrs.at("device");
   ret.attrs["old_hdl_usages"] = std::make_shared<dmlc::any>(std::move(handle_usages));
+  ret.attrs["hdl_sizes"] = std::make_shared<dmlc::any>(std::move(handle_sizes));
   ret.attrs["new_to_old_nids"] = std::make_shared<dmlc::any>(std::move(new_to_old_nids));
   ret.attrs["old_to_new_nids"] = std::make_shared<dmlc::any>(std::move(old_to_new_nids));
   ret.attrs["new_to_old_eids"] = std::make_shared<dmlc::any>(std::move(new_to_old_eids));
@@ -601,6 +608,8 @@ NNVM_REGISTER_PASS(SA_LoadGraph)
 .provide_graph_attr("new_to_old_nids")
 .provide_graph_attr("old_to_new_nids")
 .provide_graph_attr("new_to_old_eids")
+.provide_graph_attr("old_hdl_usages")
+.provide_graph_attr("hdl_sizes")
 .depend_graph_attr("context")
 .depend_graph_attr("device")
 .depend_graph_attr("num_forward_inputs")

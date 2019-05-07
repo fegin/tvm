@@ -110,6 +110,8 @@ using StorageVector = std::vector<int>;
 using IdMapping = std::unordered_map<uint32_t, uint32_t>;
 
 using HandleUsages = std::unordered_map<uint32_t, std::vector<uint32_t>>;
+
+using HandleSizes = std::unordered_map<uint32_t, size_t>;
 }  // namespace nnvm
 
 #endif  // NNVM_GRAPH_ATTR_TYPES_H_
