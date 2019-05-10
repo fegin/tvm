@@ -140,7 +140,7 @@ void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     if (kv.second.name != "swapout") continue;
     NodePtr node = Node::Create();
     node->attrs.op = swapout_op;
-    node->attrs.name = "swapout";
+    node->attrs.name = "swapout_" + std::to_string(kv.first);
     node->attrs.dict["src_tensor_nid"] = std::to_string(kv.second.tensor_nid);
     node->attrs.dict["src_tensor_idx"] = std::to_string(kv.second.tensor_idx);
     node->attrs.op->attr_parser(&(node->attrs));
@@ -159,7 +159,7 @@ void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     if (kv.second.name != "swapin") continue;
     NodePtr node = Node::Create();
     node->attrs.op = swapin_op;
-    node->attrs.name = "swapin";
+    node->attrs.name = "swapin_" + std::to_string(kv.first);
     node->attrs.dict["src_tensor_nid"] = std::to_string(kv.second.tensor_nid);
     node->attrs.dict["src_tensor_idx"] = std::to_string(kv.second.tensor_idx);
     node->attrs.op->attr_parser(&(node->attrs));
@@ -179,8 +179,7 @@ void CreateUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     node->attrs.op = update_op;
     node->attrs.name = kv.second.name;
     //node->attrs.op->attr_parser(&(node->attrs));
-    // FIXME(fegin): Turn this on when everything is ready.
-    // swapout_sink.node->control_deps.emplace_back(node);
+    swapout_sink.node->control_deps.emplace_back(node);
     updates[kv.first] = NodeEntry{std::move(node), 0, 0};
   }
 }
@@ -290,7 +289,7 @@ void ConnectSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       auto update_it = updates.find(dep_nid);
       if (update_it != updates.end()) {
         // FIXME(fegin): Turn this on when everything is ready.
-        //entry.node->control_deps.emplace_back(node_it->second);
+        entry.node->control_deps.emplace_back(update_it->second.node);
         continue;
       }
 
@@ -310,6 +309,7 @@ void ConnectPreSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       std::unordered_map<uint32_t, NodeEntry>& swapins,
                       std::unordered_map<uint32_t, NodeEntry>& variables) {
   std::cout << "ConnectPreSwapin" << std::endl;
+  return;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() > 0) continue;
@@ -325,6 +325,7 @@ void ConnectAllSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodeEntry>& swapins,
                       std::unordered_map<uint32_t, NodeEntry>& swapouts,
+                      std::unordered_map<uint32_t, NodeEntry>& updates,
                       std::unordered_map<uint32_t, NodeEntry>& variables,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes) {
   std::cout << "ConnectAllSwapin" << std::endl;
@@ -354,12 +355,21 @@ void ConnectAllSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
         continue;
       }
 
+      // Depend on a update node.
+      auto update_it = updates.find(dep_nid);
+      if (update_it != updates.end()) {
+        // FIXME(fegin): Turn this on when everything is ready.
+        entry.node->control_deps.emplace_back(update_it->second.node);
+        continue;
+      }
+
       // Depend on a model node.
       auto node_it = new_nodes.find(dep_nid);
       if (node_it != new_nodes.end()) {
         entry.node->control_deps.emplace_back(node_it->second);
+        continue;
       }
-      CHECK(false);
+      CHECK(false) << sa_nid << ", " << dep_nid;
     }
   }
 }
@@ -370,16 +380,19 @@ void ConnectUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    std::unordered_map<uint32_t, NodeEntry>& swapins,
                    std::unordered_map<uint32_t, NodeEntry>& variables,
                    std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  // FIXME(fegin): Turn this on when everything is ready.
-  return;
   std::cout << "ConnectUpdate" << std::endl;
   for (auto& kv: updates) {
     const SA_Node& sa_node = sa_nodes.at(kv.first);
     NodeEntry& entry = kv.second;
     for (auto& input : sa_node.inputs) {
-      entry.node->inputs.emplace_back(NodeEntry{new_nodes.at(input.first),
-                                                input.second,
-                                                0});
+      std::cout << "Input " << input.first << " " << input.second << std::endl;
+      if (variables.count(input.first) == 1) {
+          entry.node->inputs.emplace_back(variables.at(input.first));
+      } else {
+          entry.node->inputs.emplace_back(NodeEntry{new_nodes.at(input.first),
+                                                    input.second,
+                                                    0});
+      }
     }
     if (sa_node.deps.size() == 0) continue;
     for (uint32_t dep_nid : sa_node.deps) {
@@ -512,6 +525,7 @@ Graph SA_LoadGraph(Graph src) {
       << "Need graph attribute \"swapin_op\" in SA_LoadGraph";
   CHECK(src.attrs.count("update_op"))
       << "Need graph attribute \"update_op\" in SA_LoadGraph";
+  std::cout << "Update op " << src.GetAttr<std::string>("update_op") << std::endl;
   const Op* update_op = Op::Get(src.GetAttr<std::string>("update_op"));
   const Op* swap_entry_op = Op::Get(src.GetAttr<std::string>("swap_entry_op"));
   const Op* swapout_sink_op = Op::Get(src.GetAttr<std::string>("swapout_sink_op"));
@@ -535,14 +549,14 @@ Graph SA_LoadGraph(Graph src) {
   NodeEntry swapout_sink = CreateSwapoutSink(swapout_sink_op);
   CreateSwapout(sa_nodes, swap_entry, swapout_sink, swapout_op, swapouts);
   CreateSwapin(sa_nodes, swap_entry, swapin_op, swapins);
-  // FIXME(fegin): Figure out the update op.
-  CreateUpdate(sa_nodes, swapout_sink, NULL, updates);
+  CreateUpdate(sa_nodes, swapout_sink, update_op, updates);
   CreateVariables(sa_nodes, idx, swap_entry, variables, nodeptr_to_old_nid);
   CreateModelNodes(sa_nodes, idx, new_nodes, nodeptr_to_old_nid);
   ConnectSwapout(sa_nodes, idx, swapouts, swapins, updates, variables,
                  new_nodes);
   ConnectPreSwapin(sa_nodes, idx, swapins, variables);
-  ConnectAllSwapin(sa_nodes, idx, swapins, swapouts, variables, new_nodes);
+  ConnectAllSwapin(sa_nodes, idx, swapins, swapouts, updates, variables,
+                   new_nodes);
   ConnectUpdate(sa_nodes, idx, updates, swapins, variables, new_nodes);
   ConnectModelNodes(sa_nodes, idx, new_nodes, swapouts, swapins, variables);
 
