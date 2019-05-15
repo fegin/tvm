@@ -185,6 +185,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                      std::unordered_map<uint32_t, NodeEntry>& variables,
                      std::unordered_map<Node*, uint32_t>& nodeptr_to_old_nid) {
   std::cout << "CreateVariables" << std::endl;
+  NodeEntry prev_var = {nullptr, 0, 0};
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (!idx[nid].source->is_variable()) continue;
     NodePtr node = nullptr;
@@ -216,6 +217,9 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     //LOG(INFO) << "Create variable " << sa_nodes.at(nid).name << std::endl;
     CHECK(node->attrs.name == sa_nodes.at(nid).name);
     nodeptr_to_old_nid[node.get()] = nid;
+    if (prev_var.node != nullptr) {
+      node->control_deps.emplace_back(prev_var.node);
+    }
     if (node->attrs.name == "data") {
       variables[nid] = NodeEntry{std::move(node), 0, 0};
       swap_entry.node->inputs.emplace_back(variables[nid]);
@@ -223,6 +227,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       node->control_deps.emplace_back(swap_entry.node);
       variables[nid] = NodeEntry{std::move(node), 0, 0};
     }
+    prev_var = variables[nid];
     for (const auto dep_nid : sa_nodes.at(nid).deps) {
       sa_nodes.at(dep_nid).be_depended.insert(nid);
     }
