@@ -20,7 +20,7 @@ struct SA_Node {
 void LoadHandleUsages(uint32_t nid, std::string& line,
                       HandleUsages& hdl_usages,
                       HandleSizes& hdl_sizes) {
-  std::cout << "LoadHandleUsages:" << line << std::endl;
+  //std::cout << "LoadHandleUsages:" << line << std::endl;
   if (line.size() == 0) return;
   size_t next = 0, last = 0;
   next = line.find(",", last);
@@ -36,7 +36,7 @@ void LoadHandleUsages(uint32_t nid, std::string& line,
 }
 
 void LoadInputDep(SA_Node& node, std::string& line) {
-  std::cout << "LoadInputDep:" << line << std::endl;
+  //std::cout << "LoadInputDep:" << line << std::endl;
   if (line.size() == 0) return;
   size_t next = 0, last = 0;
   while ((next = line.find(",", last)) != std::string::npos) {
@@ -51,7 +51,7 @@ void LoadInputDep(SA_Node& node, std::string& line) {
 
 uint32_t LoadNodeInfo(std::string& line,
                       std::unordered_map<uint32_t, SA_Node>& sa_nodes) {
-  std::cout << "LoadNodeInfo:" << line << std::endl;
+  //std::cout << "LoadNodeInfo:" << line << std::endl;
   size_t next = 0, last = 0;
   next = line.find(",", last);
   size_t sa_nid = std::stoi(line.substr(last, next - last));
@@ -66,7 +66,6 @@ uint32_t LoadNodeInfo(std::string& line,
   last = next + 1;
   next = line.find(",", last);
   std::string idx = line.substr(last, next - last);
-  std::cout << "!!" << std::endl;
   if (nid[0] == 'N') {
     node.tensor_nid = -1;
     node.tensor_idx = -1;
@@ -84,28 +83,24 @@ uint32_t LoadNodeInfo(std::string& line,
 
 void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                      HandleUsages& handle_usages, HandleSizes& handle_sizes) {
-  std::cout << "LoadSAGraphFile" << std::endl;
+  //std::cout << "LoadSAGraphFile" << std::endl;
   std::ifstream ifs("dataflow.rst");
   std::string line, node_info, hdl_usages, input_deps;
   while (std::getline(ifs, line)) {
     size_t next = 0, last = 0;
-    std::cout << line << std::endl;
     next = line.find(";", last);
     node_info = line.substr(last, next - last);
     last = next + 1;
     next = line.find(";", last);
     hdl_usages = line.substr(last, next - last);
     input_deps = line.substr(next + 1);
-    std::cout << node_info << std::endl;
-    std::cout << hdl_usages << std::endl;
-    std::cout << input_deps << std::endl;
 
     uint32_t sa_nid = LoadNodeInfo(node_info, sa_nodes);
     SA_Node& node = sa_nodes[sa_nid];
     LoadHandleUsages(sa_nid, hdl_usages, handle_usages, handle_sizes);
     LoadInputDep(node, input_deps);
   }
-  std::cout << "SA_Node count " << sa_nodes.size() << std::endl;
+  //std::cout << "SA_Node count " << sa_nodes.size() << std::endl;
 }
 
 NodeEntry CreateSwapEntry(const Op* swap_source_op) {
@@ -433,12 +428,6 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     NodePtr new_node = kv.second;
 
     // Copy inputs.
-#if 0
-    std::cout << "ConnectModeNode " << old_inode.source->attrs.name << std::endl;
-    std::cout << "ConnectModeNode " << old_inode.source->attrs.op->name << std::endl;
-    std::cout << "ConnectModeNode inputs " << old_inode.inputs.size() << std::endl;
-    std::cout << "ConnectModeNode old_deps " << old_inode.control_deps.size() << std::endl;
-#endif
     for (const IndexedGraph::NodeEntry& ientry : old_inode.inputs) {
       auto var_it = variables.find(ientry.node_id);
       if (var_it != variables.end()) {
@@ -472,14 +461,15 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       }
     }
 
-    std::cout << "ConnectModeNode node " << sa_nid << " with " << deps.size()
-              << std::endl;
     std::cout << std::endl;
     for (uint32_t dep_nid : deps) {
+      std::cout << "ConnectModeNode node " << new_node->attrs.name
+                << " with " << dep_nid << std::endl;
       // Depend on another model node.
       auto node_it = new_nodes.find(dep_nid);
       if (node_it != new_nodes.end()) {
-        std::cout << "DEPENDS on another model node." << std::endl;
+        std::cout << "DEPENDS on another model node: "
+                  << node_it->second->attrs.name << std::endl;
         new_node->control_deps.emplace_back(node_it->second);
         continue;
       }
