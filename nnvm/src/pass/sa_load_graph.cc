@@ -118,7 +118,7 @@ NodeEntry CreateSwapEntry(const Op* swap_source_op) {
 }
 
 NodeEntry CreateSwapoutSink(const Op* swapout_sink_op) {
-  std::cout << "CreateSwapoutSink" << std::endl;
+  //std::cout << "CreateSwapoutSink" << std::endl;
   NodePtr node = Node::Create();
   node->attrs.op = swapout_sink_op;
   node->attrs.name = "swapout_sink";
@@ -130,7 +130,7 @@ void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    const NodeEntry& swapout_sink,
                    const Op* swapout_op,
                    std::unordered_map<uint32_t, NodeEntry>& swapouts) {
-  std::cout << "CreateSwapout" << std::endl;
+  //std::cout << "CreateSwapout" << std::endl;
   for (const auto& kv: sa_nodes) {
     if (kv.second.name != "swapout") continue;
     NodePtr node = Node::Create();
@@ -149,7 +149,7 @@ void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                   const NodeEntry& swap_entry,
                   const Op* swapin_op,
                   std::unordered_map<uint32_t, NodeEntry>& swapins) {
-  std::cout << "CreateSwapin" << std::endl;
+  //std::cout << "CreateSwapin" << std::endl;
   for (const auto& kv: sa_nodes) {
     if (kv.second.name != "swapin") continue;
     NodePtr node = Node::Create();
@@ -167,7 +167,7 @@ void CreateUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                   const NodeEntry& swapout_sink,
                   const Op* update_op,
                   std::unordered_map<uint32_t, NodeEntry>& updates) {
-  std::cout << "CreateUpdate" << std::endl;
+  //std::cout << "CreateUpdate" << std::endl;
   for (const auto& kv: sa_nodes) {
     if (kv.second.name.find("weight_g_update") == std::string::npos) continue;
     NodePtr node = Node::Create();
@@ -184,7 +184,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                      const NodeEntry& swap_entry,
                      std::unordered_map<uint32_t, NodeEntry>& variables,
                      std::unordered_map<Node*, uint32_t>& nodeptr_to_old_nid) {
-  std::cout << "CreateVariables" << std::endl;
+  //std::cout << "CreateVariables" << std::endl;
   NodeEntry prev_var = {nullptr, 0, 0};
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (!idx[nid].source->is_variable()) continue;
@@ -238,7 +238,7 @@ void CreateModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes,
                       std::unordered_map<Node*, uint32_t>& nodeptr_to_old_nid) {
-  std::cout << "CreateModelNodes" << std::endl;
+  //std::cout << "CreateModelNodes" << std::endl;
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (idx[nid].source->is_variable()) continue;
     NodePtr new_node = Node::Create();
@@ -258,7 +258,7 @@ void ConnectSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                     std::unordered_map<uint32_t, NodeEntry>& updates,
                     std::unordered_map<uint32_t, NodeEntry>& variables,
                     std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  std::cout << "ConnectAllSwapout" << std::endl;
+  //std::cout << "ConnectAllSwapout" << std::endl;
   for (auto& kv: swapouts) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
@@ -308,14 +308,15 @@ void ConnectPreSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodeEntry>& swapins,
                       std::unordered_map<uint32_t, NodeEntry>& variables) {
-  std::cout << "ConnectPreSwapin" << std::endl;
+  // This function seems to be included by regular swapin functions.
+  //std::cout << "ConnectPreSwapin" << std::endl;
   return;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() > 0) continue;
     NodeEntry& entry = kv.second;
     for (const auto var_id : sa_nodes.at(sa_nid).be_depended) {
-      std::cout << "DEPENDS on PRESWAPIN" << std::endl;
+      //std::cout << " DEPENDS on PRESWAPIN" << std::endl;
       variables.at(var_id).node->control_deps.emplace_back(entry.node);
     }
   }
@@ -328,7 +329,7 @@ void ConnectAllSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       std::unordered_map<uint32_t, NodeEntry>& updates,
                       std::unordered_map<uint32_t, NodeEntry>& variables,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  std::cout << "ConnectAllSwapin" << std::endl;
+  //std::cout << "ConnectAllSwapin" << std::endl;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
@@ -380,12 +381,12 @@ void ConnectUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    std::unordered_map<uint32_t, NodeEntry>& swapins,
                    std::unordered_map<uint32_t, NodeEntry>& variables,
                    std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  std::cout << "ConnectUpdate" << std::endl;
+  //std::cout << "ConnectUpdate" << std::endl;
   for (auto& kv: updates) {
     const SA_Node& sa_node = sa_nodes.at(kv.first);
     NodeEntry& entry = kv.second;
     for (auto& input : sa_node.inputs) {
-      std::cout << "Input " << input.first << " " << input.second << std::endl;
+      //std::cout << "Input " << input.first << " " << input.second << std::endl;
       if (variables.count(input.first) == 1) {
           entry.node->inputs.emplace_back(variables.at(input.first));
       } else {
@@ -426,7 +427,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                        const std::unordered_map<uint32_t, NodeEntry>& swapouts,
                        const std::unordered_map<uint32_t, NodeEntry>& swapins,
                        std::unordered_map<uint32_t, NodeEntry>& variables) {
-  std::cout << "ConnectModelNodes" << std::endl;
+  //std::cout << "ConnectModelNodes" << std::endl;
   for (auto& kv : new_nodes) {
     uint32_t sa_nid = kv.first;
     auto old_inode = idx[sa_nid];
@@ -466,15 +467,15 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       }
     }
 
-    std::cout << std::endl;
+    //std::cout << std::endl;
     for (uint32_t dep_nid : deps) {
-      std::cout << "ConnectModeNode node " << new_node->attrs.name
-                << " with " << dep_nid << std::endl;
+      //std::cout << "ConnectModeNode node " << new_node->attrs.name
+                //<< " with " << dep_nid << std::endl;
       // Depend on another model node.
       auto node_it = new_nodes.find(dep_nid);
       if (node_it != new_nodes.end()) {
-        std::cout << "DEPENDS on another model node: "
-                  << node_it->second->attrs.name << std::endl;
+        //std::cout << "DEPENDS on another model node: "
+                  //<< node_it->second->attrs.name << std::endl;
         new_node->control_deps.emplace_back(node_it->second);
         continue;
       }
@@ -482,7 +483,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       // Depend on a swapout.
       auto so_it = swapouts.find(dep_nid);
       if (so_it != swapouts.end()) {
-        std::cout << "DEPENDS on SWAPOUT" << std::endl;
+        //std::cout << "DEPENDS on SWAPOUT" << std::endl;
         new_node->control_deps.emplace_back(so_it->second.node);
         continue;
       }
@@ -490,7 +491,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       // Depend on a swapin.
       auto si_it = swapins.find(dep_nid);
       if (si_it != swapins.end()) {
-        std::cout << "DEPENDS on SWAPIN" << std::endl;
+        //std::cout << "DEPENDS on SWAPIN" << std::endl;
         new_node->control_deps.emplace_back(si_it->second.node);
         continue;
       }
@@ -498,7 +499,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       // Depend on a variable.
       auto var_it = variables.find(dep_nid);
       if (var_it != variables.end()) {
-        std::cout << "DEPENDS on a variable." << std::endl;
+        //std::cout << "DEPENDS on a variable." << std::endl;
         new_node->control_deps.emplace_back(var_it->second.node);
         continue;
       }
@@ -520,7 +521,6 @@ Graph SA_LoadGraph(Graph src) {
       << "Need graph attribute \"swapin_op\" in SA_LoadGraph";
   CHECK(src.attrs.count("update_op"))
       << "Need graph attribute \"update_op\" in SA_LoadGraph";
-  std::cout << "Update op " << src.GetAttr<std::string>("update_op") << std::endl;
   const Op* update_op = Op::Get(src.GetAttr<std::string>("update_op"));
   const Op* swap_entry_op = Op::Get(src.GetAttr<std::string>("swap_entry_op"));
   const Op* swapout_sink_op = Op::Get(src.GetAttr<std::string>("swapout_sink_op"));
@@ -576,12 +576,13 @@ Graph SA_LoadGraph(Graph src) {
   IdMapping new_to_old_nids;
   IdMapping old_to_new_nids;
   IdMapping new_to_old_eids;
-  std::cout << "nodeptr_to_old_nid " << nodeptr_to_old_nid.size() << std::endl;
+  //std::cout << "nodeptr_to_old_nid " << nodeptr_to_old_nid.size() << std::endl;
   for (uint32_t nid = 0; nid < new_idx.num_nodes(); ++nid) {
     const auto it =
       nodeptr_to_old_nid.find(const_cast<Node*>(new_idx[nid].source));
     if (it == nodeptr_to_old_nid.end()) {
-      std::cout << "SKIP " << nid << new_idx[nid].source->attrs.name << std::endl;
+      //std::cout << "SKIP " << nid << new_idx[nid].source->attrs.name
+                //<< std::endl;
       continue;
     }
     const size_t old_nid = it->second;
@@ -589,8 +590,8 @@ Graph SA_LoadGraph(Graph src) {
     old_to_new_nids[old_nid] = nid;
     const size_t num_outputs = new_idx[nid].source->num_outputs();
     for (size_t output_idx = 0; output_idx < num_outputs; output_idx++) {
-      new_to_old_eids[new_idx.entry_id(nid, output_idx)] = idx.entry_id(old_nid,
-                                                                        output_idx);
+      new_to_old_eids[new_idx.entry_id(nid, output_idx)] =
+        idx.entry_id(old_nid, output_idx);
     }
   }
   ret.attrs["context"] = src.attrs.at("context");
