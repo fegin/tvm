@@ -165,6 +165,7 @@ void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     node->attrs.name = "swapin_" + std::to_string(kv.first);
     node->attrs.dict["src_tensor_nid"] = std::to_string(kv.second.tensor_nid);
     node->attrs.dict["src_tensor_idx"] = std::to_string(kv.second.tensor_idx);
+    node->attrs.dict["is_noop"] = std::to_string(kv.second.is_noop);
     node->attrs.op->attr_parser(&(node->attrs));
     node->control_deps.emplace_back(swap_entry.node);
     swapins[kv.first] = NodeEntry{std::move(node), 0, 0};
