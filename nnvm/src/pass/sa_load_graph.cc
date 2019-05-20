@@ -12,6 +12,7 @@ struct SA_Node {
   std::string name;
   uint32_t tensor_nid;
   uint32_t tensor_idx;
+  uint32_t is_noop;
   std::vector<uint32_t> deps;
   std::vector<std::pair<uint32_t, uint32_t>> inputs;
   std::unordered_set<uint32_t> be_depended;
@@ -66,13 +67,19 @@ uint32_t LoadNodeInfo(std::string& line,
   last = next + 1;
   next = line.find(",", last);
   std::string idx = line.substr(last, next - last);
+  last = next + 1;
+  next = line.find(",", last);
+  std::string is_noop = line.substr(last, next - last);
   if (nid[0] == 'N') {
     node.tensor_nid = -1;
     node.tensor_idx = -1;
+    node.is_noop = 0;
   } else {
     node.tensor_nid = std::stoi(nid);
     node.tensor_idx = std::stoi(idx);
+    node.is_noop = (is_noop == "Y") ? 1 : 0;
   }
+
   last = next + 1;
   while ((next = line.find(",", last)) != std::string::npos) {
     node.deps.push_back(std::stoi(line.substr(last, next - last)));
@@ -138,6 +145,7 @@ void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     node->attrs.name = "swapout_" + std::to_string(kv.first);
     node->attrs.dict["src_tensor_nid"] = std::to_string(kv.second.tensor_nid);
     node->attrs.dict["src_tensor_idx"] = std::to_string(kv.second.tensor_idx);
+    node->attrs.dict["is_noop"] = std::to_string(kv.second.is_noop);
     node->attrs.op->attr_parser(&(node->attrs));
     node->control_deps.emplace_back(swap_entry.node);
     swapout_sink.node->control_deps.emplace_back(node);
