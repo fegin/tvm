@@ -172,6 +172,7 @@ struct JSONGraph {
         new_attrs["dtype_num_unknown_nodes"] =
               attrs.at("dtype_num_unknown_nodes");
         new_attrs["output_handles"] = attrs.at("output_handles");
+        new_attrs["skip_plus_node"] = attrs.at("skip_plus_node");
         writer->WriteObjectKeyValue("attrs", new_attrs);
       } else {
         writer->WriteObjectKeyValue("attrs", attrs);
