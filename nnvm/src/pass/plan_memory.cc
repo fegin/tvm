@@ -161,6 +161,13 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
   const ShapeVector& shape_vec = ret.GetAttr<ShapeVector>("shape");
   const DTypeVector& dtype_vec = ret.GetAttr<DTypeVector>("dtype");
   const DeviceVector* device_vec = nullptr;
+  size_t swapadv = dmlc::GetEnv("MXNET_SWAP_ADVISOR", 0);
+  const HandleUsages* old_hdl_usages = nullptr;
+  const IdMapping* new_to_old_nids = nullptr;
+  if (swapadv) {
+    old_hdl_usages = &(ret.GetAttr<nnvm::HandleUsages>("old_hdl_usages"));
+    new_to_old_nids = &(ret.GetAttr<nnvm::IdMapping>("new_to_old_nids"));
+  }
 
   if (ret.attrs.count("device") != 0) {
     device_vec = &(ret.GetAttr<DeviceVector>("device"));
@@ -193,6 +200,16 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
         bool ignore_all_inputs = (fignore_inputs.count(inode.source->op()) != 0 &&
                                   fignore_inputs[inode.source->op()](
                                       inode.source->attrs).size() == inode.source->num_inputs());
+        bool swapadv_inplace = false;
+        if (swapadv) {
+          uint32_t out_old_nid = new_to_old_nids->at(nid);
+          uint32_t out_old_hid = old_hdl_usages->at(out_old_nid)[kv.second];
+          uint32_t in_old_nid = new_to_old_nids->at(inode.inputs[kv.first].node_id);
+          uint32_t in_old_hid = old_hdl_usages->at(in_old_nid)[inode.inputs[kv.first].index];
+          if (in_old_hid == out_old_hid) {
+              swapadv_inplace = true;
+          }
+        }
         if (taken[kv.first] == false &&
             sid_out == GraphAllocator::kBadStorageID &&
             sid_in >= 0 &&
@@ -200,6 +217,7 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
             entry_ref_count[eid_out] > 0 &&
             shape_vec[eid_out].Size() == shape_vec[eid_in].Size() &&
             dtype_vec[eid_out] == dtype_vec[eid_in]) {
+          if (swapadv && !swapadv_inplace) continue;
           // inplace optimization
           taken[kv.first] = true;
           storage[eid_out] = sid_in;
@@ -208,6 +226,8 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
           // input section.
           storage_ref_count[sid_in] += entry_ref_count[eid_out];
           storage_inplace_index[eid_out] = kv.first;
+        } else {
+          CHECK(!swapadv || !swapadv_inplace);
         }
       }
     }
