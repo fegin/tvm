@@ -201,13 +201,30 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
                                   fignore_inputs[inode.source->op()](
                                       inode.source->attrs).size() == inode.source->num_inputs());
         bool swapadv_inplace = false;
+        bool swapadv_skip = false;
         if (swapadv) {
           uint32_t out_old_nid = new_to_old_nids->at(nid);
-          uint32_t out_old_hid = old_hdl_usages->at(out_old_nid)[kv.second];
-          uint32_t in_old_nid = new_to_old_nids->at(inode.inputs[kv.first].node_id);
-          uint32_t in_old_hid = old_hdl_usages->at(in_old_nid)[inode.inputs[kv.first].index];
-          if (in_old_hid == out_old_hid) {
-              swapadv_inplace = true;
+          if (old_hdl_usages->count(out_old_nid) == 0) {
+            CHECK(idx[nid].source->attrs.name.find("sum_grad_") !=
+                  std::string::npos);
+            swapadv_skip = true;
+          } else {
+            uint32_t out_old_hid = old_hdl_usages->at(out_old_nid)[kv.second];
+            uint32_t source_nid = inode.inputs[kv.first].node_id;
+            uint32_t in_old_nid = new_to_old_nids->at(source_nid);
+            if (old_hdl_usages->count(in_old_nid) == 0) {
+              CHECK(idx[nid].source->attrs.name.find("sum_grad_") !=
+                    std::string::npos);
+              CHECK(idx[source_nid].source->attrs.name.find("sum_grad_") !=
+                    std::string::npos);
+              swapadv_skip = true;
+            } else {
+              uint32_t in_old_hid =
+                old_hdl_usages->at(in_old_nid)[inode.inputs[kv.first].index];
+              if (in_old_hid == out_old_hid) {
+                swapadv_inplace = true;
+              }
+            }
           }
         }
         if (taken[kv.first] == false &&
@@ -227,7 +244,7 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
           storage_ref_count[sid_in] += entry_ref_count[eid_out];
           storage_inplace_index[eid_out] = kv.first;
         } else {
-          CHECK(!swapadv || !swapadv_inplace);
+          CHECK(!swapadv || swapadv_skip || !swapadv_inplace);
         }
       }
     }
