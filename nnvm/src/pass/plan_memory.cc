@@ -234,7 +234,7 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
             entry_ref_count[eid_out] > 0 &&
             shape_vec[eid_out].Size() == shape_vec[eid_in].Size() &&
             dtype_vec[eid_out] == dtype_vec[eid_in]) {
-          if (swapadv && !swapadv_inplace) continue;
+          if (swapadv && !swapadv_skip && !swapadv_inplace) continue;
           // inplace optimization
           taken[kv.first] = true;
           storage[eid_out] = sid_in;
