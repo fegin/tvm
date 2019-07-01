@@ -125,7 +125,7 @@ NodeEntry CreateSwapEntry(const Op* swap_source_op) {
 }
 
 NodeEntry CreateSwapoutSink(const Op* swapout_sink_op) {
-  //std::cout << "CreateSwapoutSink" << std::endl;
+  std::cout << "CreateSwapoutSink" << std::endl;
   NodePtr node = Node::Create();
   node->attrs.op = swapout_sink_op;
   node->attrs.name = "swapout_sink";
@@ -137,7 +137,7 @@ void CreateSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    const NodeEntry& swapout_sink,
                    const Op* swapout_op,
                    std::unordered_map<uint32_t, NodeEntry>& swapouts) {
-  //std::cout << "CreateSwapout" << std::endl;
+  std::cout << "CreateSwapout" << std::endl;
   for (const auto& kv: sa_nodes) {
     if (kv.second.name != "swapout") continue;
     NodePtr node = Node::Create();
@@ -157,7 +157,7 @@ void CreateSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                   const NodeEntry& swap_entry,
                   const Op* swapin_op,
                   std::unordered_map<uint32_t, NodeEntry>& swapins) {
-  //std::cout << "CreateSwapin" << std::endl;
+  std::cout << "CreateSwapin" << std::endl;
   for (const auto& kv: sa_nodes) {
     if (kv.second.name != "swapin") continue;
     NodePtr node = Node::Create();
@@ -176,7 +176,7 @@ void CreateUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                   const NodeEntry& swapout_sink,
                   const Op* update_op,
                   std::unordered_map<uint32_t, NodeEntry>& updates) {
-  //std::cout << "CreateUpdate" << std::endl;
+  std::cout << "CreateUpdate" << std::endl;
   for (const auto& kv: sa_nodes) {
     if (kv.second.name.find("weight_g_update") == std::string::npos) continue;
     NodePtr node = Node::Create();
@@ -193,7 +193,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                      const NodeEntry& swap_entry,
                      std::unordered_map<uint32_t, NodeEntry>& variables,
                      std::unordered_map<Node*, uint32_t>& nodeptr_to_old_nid) {
-  //std::cout << "CreateVariables" << std::endl;
+  std::cout << "CreateVariables" << std::endl;
   NodeEntry prev_var = {nullptr, 0, 0};
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (!idx[nid].source->is_variable()) continue;
@@ -229,7 +229,7 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     if (prev_var.node != nullptr) {
       node->control_deps.emplace_back(prev_var.node);
     }
-    if (node->attrs.name == "data") {
+    if (node->attrs.name == "data" or node->attrs.name == "data0") {
       variables[nid] = NodeEntry{std::move(node), 0, 0};
       swap_entry.node->inputs.emplace_back(variables[nid]);
     } else {
@@ -243,15 +243,27 @@ void CreateVariables(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
   }
 }
 
-void CreateModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
+void CreateModelNodes(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       const IndexedGraph& idx,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes,
                       std::unordered_map<Node*, uint32_t>& nodeptr_to_old_nid) {
-  //std::cout << "CreateModelNodes" << std::endl;
+  std::cout << "CreateModelNodes" << std::endl;
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (idx[nid].source->is_variable()) continue;
     NodePtr new_node = Node::Create();
     new_node->attrs = idx[nid].source->attrs;
+    if (new_node->attrs.name.find("sum_grad_") != std::string::npos) {
+      SA_Node node;
+      node.sa_nid = nid;
+      node.name = new_node->attrs.name;
+      node.tensor_nid = -1;
+      node.tensor_idx = -1;
+      node.is_noop = 0;
+      //std::vector<uint32_t> deps;
+      //std::vector<std::pair<uint32_t, uint32_t>> inputs;
+      //std::unordered_set<uint32_t> be_depended;
+      sa_nodes[nid] = node;
+    }
     //LOG(INFO) << "Create node " << new_node->attrs.name << std::endl;
     //LOG(INFO) << "Create node " << sa_nodes.at(nid).name << std::endl;
     CHECK(new_node->attrs.name == sa_nodes.at(nid).name);
@@ -267,7 +279,7 @@ void ConnectSwapout(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                     std::unordered_map<uint32_t, NodeEntry>& updates,
                     std::unordered_map<uint32_t, NodeEntry>& variables,
                     std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  //std::cout << "ConnectAllSwapout" << std::endl;
+  std::cout << "ConnectAllSwapout" << std::endl;
   for (auto& kv: swapouts) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
@@ -318,7 +330,7 @@ void ConnectPreSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       std::unordered_map<uint32_t, NodeEntry>& swapins,
                       std::unordered_map<uint32_t, NodeEntry>& variables) {
   // This function seems to be included by regular swapin functions.
-  //std::cout << "ConnectPreSwapin" << std::endl;
+  std::cout << "ConnectPreSwapin" << std::endl;
   return;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
@@ -338,7 +350,7 @@ void ConnectAllSwapin(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       std::unordered_map<uint32_t, NodeEntry>& updates,
                       std::unordered_map<uint32_t, NodeEntry>& variables,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  //std::cout << "ConnectAllSwapin" << std::endl;
+  std::cout << "ConnectAllSwapin" << std::endl;
   for (auto& kv: swapins) {
     uint32_t sa_nid = kv.first;
     if (sa_nodes.at(sa_nid).deps.size() == 0) continue;
@@ -390,7 +402,7 @@ void ConnectUpdate(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                    std::unordered_map<uint32_t, NodeEntry>& swapins,
                    std::unordered_map<uint32_t, NodeEntry>& variables,
                    std::unordered_map<uint32_t, NodePtr>& new_nodes) {
-  //std::cout << "ConnectUpdate" << std::endl;
+  std::cout << "ConnectUpdate" << std::endl;
   for (auto& kv: updates) {
     const SA_Node& sa_node = sa_nodes.at(kv.first);
     NodeEntry& entry = kv.second;
@@ -436,7 +448,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                        const std::unordered_map<uint32_t, NodeEntry>& swapouts,
                        const std::unordered_map<uint32_t, NodeEntry>& swapins,
                        std::unordered_map<uint32_t, NodeEntry>& variables) {
-  //std::cout << "ConnectModelNodes" << std::endl;
+  std::cout << "ConnectModelNodes" << std::endl;
   for (auto& kv : new_nodes) {
     uint32_t sa_nid = kv.first;
     auto old_inode = idx[sa_nid];
