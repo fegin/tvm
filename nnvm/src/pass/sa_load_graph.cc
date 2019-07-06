@@ -248,6 +248,8 @@ void CreateModelNodes(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                       std::unordered_map<uint32_t, NodePtr>& new_nodes,
                       std::unordered_map<Node*, uint32_t>& nodeptr_to_old_nid) {
   std::cout << "CreateModelNodes" << std::endl;
+  int infer = dmlc::GetEnv("MXNET_INFER_ONLY", 0);
+  int last_infer_nid = -1;
   for (uint32_t nid = 0; nid < idx.num_nodes(); ++nid) {
     if (idx[nid].source->is_variable()) continue;
     NodePtr new_node = Node::Create();
@@ -264,9 +266,17 @@ void CreateModelNodes(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
       //std::unordered_set<uint32_t> be_depended;
       sa_nodes[nid] = node;
     }
+    if (sa_nodes.count(nid) == 0) {
+      CHECK(infer == 1);
+      if (last_infer_nid == -1) {
+          last_infer_nid = nid;
+      }
+    } else {
+        CHECK(last_infer_nid == -1);
+        CHECK(new_node->attrs.name == sa_nodes.at(nid).name);
+    }
     //LOG(INFO) << "Create node " << new_node->attrs.name << std::endl;
     //LOG(INFO) << "Create node " << sa_nodes.at(nid).name << std::endl;
-    CHECK(new_node->attrs.name == sa_nodes.at(nid).name);
     new_nodes[nid] = new_node;
     nodeptr_to_old_nid[new_node.get()] = nid;
   }
@@ -449,6 +459,8 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                        const std::unordered_map<uint32_t, NodeEntry>& swapins,
                        std::unordered_map<uint32_t, NodeEntry>& variables) {
   std::cout << "ConnectModelNodes" << std::endl;
+  int infer = dmlc::GetEnv("MXNET_INFER_ONLY", 0);
+  int last_infer_nid = -1;
   for (auto& kv : new_nodes) {
     uint32_t sa_nid = kv.first;
     auto old_inode = idx[sa_nid];
@@ -473,18 +485,26 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
     for (uint32_t dep_nid : old_inode.control_deps) {
       deps.push_back(dep_nid);
     }
-    // Control deps from SA
-    const SA_Node& sa_node = sa_nodes.at(sa_nid);
-    for (const uint32_t dep_nid : sa_node.deps) {
-      bool exist = false;
-      for (const uint32_t  _dep_nid : deps) {
-        if (_dep_nid == dep_nid) {
-          exist = true;
-          break;
-        }
+    if (sa_nodes.count(sa_nid) == 0) {
+      CHECK(infer == 1);
+      if (last_infer_nid == -1) {
+        last_infer_nid = sa_nid;
       }
-      if (!exist) {
-        deps.push_back(dep_nid);
+    } else {
+      CHECK(last_infer_nid != -1);
+      // Control deps from SA
+      const SA_Node& sa_node = sa_nodes.at(sa_nid);
+      for (const uint32_t dep_nid : sa_node.deps) {
+        bool exist = false;
+        for (const uint32_t  _dep_nid : deps) {
+          if (_dep_nid == dep_nid) {
+            exist = true;
+            break;
+          }
+        }
+        if (!exist) {
+          deps.push_back(dep_nid);
+        }
       }
     }
 
