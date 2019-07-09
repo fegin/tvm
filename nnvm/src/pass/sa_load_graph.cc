@@ -491,7 +491,7 @@ void ConnectModelNodes(const std::unordered_map<uint32_t, SA_Node>& sa_nodes,
         last_infer_nid = sa_nid;
       }
     } else {
-      CHECK(last_infer_nid != -1);
+      CHECK(infer == 0 || last_infer_nid != -1);
       // Control deps from SA
       const SA_Node& sa_node = sa_nodes.at(sa_nid);
       for (const uint32_t dep_nid : sa_node.deps) {
