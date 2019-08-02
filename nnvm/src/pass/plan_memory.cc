@@ -162,6 +162,7 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
   const DTypeVector& dtype_vec = ret.GetAttr<DTypeVector>("dtype");
   const DeviceVector* device_vec = nullptr;
   size_t swapadv = dmlc::GetEnv("MXNET_SWAP_ADVISOR", 0);
+  int infer = dmlc::GetEnv("MXNET_INFER_ONLY", 0);
   const HandleUsages* old_hdl_usages = nullptr;
   const IdMapping* new_to_old_nids = nullptr;
   if (swapadv) {
@@ -206,7 +207,7 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
           uint32_t out_old_nid = new_to_old_nids->at(nid);
           if (old_hdl_usages->count(out_old_nid) == 0) {
             CHECK(idx[nid].source->attrs.name.find("sum_grad_") !=
-                  std::string::npos);
+                  std::string::npos || infer == 1);
             swapadv_skip = true;
           } else {
             uint32_t out_old_hid = old_hdl_usages->at(out_old_nid)[kv.second];
@@ -214,9 +215,9 @@ size_t AllocMemory(const Graph& ret, const IndexedGraph& idx,
             uint32_t in_old_nid = new_to_old_nids->at(source_nid);
             if (old_hdl_usages->count(in_old_nid) == 0) {
               CHECK(idx[nid].source->attrs.name.find("sum_grad_") !=
-                    std::string::npos);
+                    std::string::npos || infer == 1);
               CHECK(idx[source_nid].source->attrs.name.find("sum_grad_") !=
-                    std::string::npos);
+                    std::string::npos || infer == 1);
               swapadv_skip = true;
             } else {
               uint32_t in_old_hid =
