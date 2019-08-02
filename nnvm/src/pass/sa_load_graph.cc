@@ -91,7 +91,8 @@ uint32_t LoadNodeInfo(std::string& line,
 void LoadSAGraphFile(std::unordered_map<uint32_t, SA_Node>& sa_nodes,
                      HandleUsages& handle_usages, HandleSizes& handle_sizes) {
   //std::cout << "LoadSAGraphFile" << std::endl;
-  std::ifstream ifs("dataflow.rst");
+  auto basedir = dmlc::GetEnv("MXNET_SWAP_BASEDIR", std::string("./"));
+  std::ifstream ifs(basedir + "dataflow.rst");
   std::string line, node_info, hdl_usages, input_deps;
   while (std::getline(ifs, line)) {
     size_t next = 0, last = 0;
